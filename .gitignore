@@ -1,0 +1,21 @@
+.DS_Store
+
+# Backup files created by the build process
+*.bak
+
+# Source / reference documents — not needed on the web server
+Moutaz Alsayed*.docx
+PHOTOVOLTAIC SYSTEM DESIGN AND CONSTRUCTION AGREEMENT.docx
+P7112851.JPG
+
+# Dev diagnostics
+template_errors_*.txt
+
+# Template inspection (unzipped docx — for local debugging only)
+unpacked/
+
+# Sample/test data
+restartofcontractautomationtool/
+
+# Claude Code project config
+.claude/

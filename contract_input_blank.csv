@@ -1,0 +1,13 @@
+description,placeholder,value
+Contract execution date (e.g. March 26 2026),{{effective_date}},
+Customer organization or business name,{{customer_org_name}},
+Project site address city state zip,{{customer_address}},
+Customer tax status — C corporation / S corporation / 501(c)(3) / other,{{customer_tax_status}},
+If tax status is Other — specify the type,{{customer_tax_status_other}},
+System description e.g. 24kW DC to 28kW DC solar tracker,{{initial_target_capacity}},
+Estimated Total Project Cost,{{estimated_total}},
+Whether project is subject to prevailing wage — enter: is OR is not,{{prevailing_wage}},
+Date the contract is signed (same as effective date or later),{{contract_date}},
+Full name of customer individual signing the contract,{{customer_name}},
+Title of customer signatory — leave blank if sole proprietor,{{customer_title}},
+Site photo — image file path or uploaded file name,{{site_photo}},

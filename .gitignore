@@ -18,15 +18,7 @@ unpacked/
 restartofcontractautomationtool/
 
 # Previous version JSX files — local revision history only, not needed on server
-# The current version is the only one referenced by contract_tool.html
-contract_tool_app_v0.1.*.jsx
-contract_tool_app_v0.2.0.jsx
-contract_tool_app_v0.2.1.jsx
-contract_tool_app_v0.2.2.jsx
-contract_tool_app_v0.2.3.jsx
-contract_tool_app_v0.2.4.jsx
-contract_tool_app_v0.2.5.jsx
-contract_tool_app_v0.2.6.jsx
+old_versions/
 
 # Claude Code project config
 .claude/

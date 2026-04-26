@@ -1,14 +1,17 @@
-// contract_tool_app_v0.2.7.jsx
+// contract_tool_app_v0.3.5.jsx
 // Makello Contract Tool
-// v0.2.7 — 2026-04-19
+// v0.3.5 — 2026-04-25
 //
-// Changes from v0.2.6:
-//  - Header readiness indicator: always-visible label next to Generate that
-//    shows "✓ All fields ready" (green) or "⚠ N fields need filling" (amber)
-//    so the user knows at a glance whether the form is complete.
-//  - Help panel: photo section now explains browser security model — browsers
-//    only grant temporary access to a file when the user explicitly picks it;
-//    there is no persistent path that a web page can re-read automatically.
+// Changes from v0.2.7:
+//  - Legacy Makello database export detection. The Makello CRM exports a
+//    wide CSV with all field names across row 1 and all values across row 2,
+//    unlike the normal contract_input CSV (one row per field). The parser
+//    detects the format by checking whether row 0 contains 'owner_name' as
+//    a column header. Three fields are currently mapped: owner_name →
+//    customer_org_name, address → customer_address, gross_cost →
+//    estimated_total. Additional mappings can be added to LEGACY_FIELD_MAP.
+//    The status line notes "(legacy Makello format — partial data)" when a
+//    legacy file is loaded.
 
 const { useState, useEffect, useRef } = React;
 
@@ -18,21 +21,43 @@ const { useState, useEffect, useRef } = React;
 
 const TAX_STATUS_OPTIONS = ['', 'C corporation', 'S corporation', '501(c)(3)', 'Other'];
 
+// Aliases accepted when loading tax status from CSV (keyed by stripped lowercase).
+// The fuzzy matcher handles full names case-insensitively; these cover abbreviations.
+const TAX_STATUS_ALIASES = {
+  'c':            'C corporation',
+  'ccorp':        'C corporation',
+  's':            'S corporation',
+  'scorp':        'S corporation',
+  'nonprofit':    '501(c)(3)',
+  'notforprofit': '501(c)(3)',
+  '501c3':        '501(c)(3)',
+};
+
+// Prevailing wage: UI shows yes/no (intuitive for data entry); template receives
+// is/is not (fits contract clause "This project [is / is not] subject to…").
+const PREVAILING_WAGE_OUTPUT = { yes: 'is', no: 'is not' };
+
+// fillStatus — how each job field is expected to be populated:
+//   'upload'     — should come from the customer data file; required for output
+//   'manual'     — must be entered manually; required for output
+//   'optional'   — can legitimately be left blank (e.g. effective date, "Other" detail)
+//   'at_signing' — intentionally blank in preliminary versions; filled at execution time
+
 const FIELDS = [
-  { key: 'effective_date',                    label: 'Contract execution date (e.g. April 17 2026)',                          type: 'job' },
+  { key: 'effective_date',                    label: 'Contract execution date (e.g. April 17 2026)',                          type: 'job',    fillStatus: 'optional' },
   { key: 'contractor_name',                   label: 'Contractor company name',                                               type: 'stable', dflt: '' },
   { key: 'contractor_address',                label: 'Contractor street address city state zip',                              type: 'stable', dflt: '' },
   { key: 'contractor_license_no',             label: 'California Contractor License number',                                  type: 'stable', dflt: '' },
-  { key: 'customer_org_name',                 label: 'Customer organization or business name',                                type: 'job' },
-  { key: 'customer_address',                  label: 'Project site address city state zip',                                   type: 'job' },
-  { key: 'customer_tax_status',               label: 'Customer tax status',                                                   type: 'job',    widget: 'select' },
-  { key: 'customer_tax_status_other',         label: 'If "Other" — specify type',                                            type: 'job' },
-  { key: 'initial_target_capacity',           label: 'System description (e.g. 24kW DC to 28kW DC solar tracker)',           type: 'job' },
+  { key: 'customer_org_name',                 label: 'Customer organization or business name',                                type: 'job',    fillStatus: 'upload' },
+  { key: 'customer_address',                  label: 'Project site address city state zip',                                   type: 'job',    fillStatus: 'upload' },
+  { key: 'customer_tax_status',               label: 'Customer tax status',                                                   type: 'job',    fillStatus: 'manual',     widget: 'select' },
+  { key: 'customer_tax_status_other',         label: 'If "Other" — specify type',                                            type: 'job',    fillStatus: 'optional' },
+  { key: 'initial_target_capacity',           label: 'System description (e.g. 24kW DC to 28kW DC solar tracker)',           type: 'job',    fillStatus: 'manual' },
   { key: 'material_escalation_threshold_pct', label: 'Material cost escalation threshold',                                   type: 'stable', dflt: '5%',  unit: 'pct' },
   { key: 'labor_escalation_threshold_pct',    label: 'Labor cost escalation threshold (ENR Skilled Labor Index)',             type: 'stable', dflt: '5%',  unit: 'pct' },
   { key: 'phase1_completion_days',            label: 'Days to complete Phase 1 after Effective Date',                        type: 'stable', dflt: '75' },
   { key: 'phase1_fee_pct',                    label: 'Phase 1 fee as % of Total Project Cost',                               type: 'stable', dflt: '8%',  unit: 'pct' },
-  { key: 'estimated_total',                   label: 'Estimated Total Project Cost',                                          type: 'job',                 unit: 'usd' },
+  { key: 'estimated_total',                   label: 'Estimated Total Project Cost',                                          type: 'job',    fillStatus: 'upload',     unit: 'usd' },
   { key: 'phase1_fee',                        label: 'Phase 1 fee — total dollar amount',                                     type: 'calc',   formula: 'estimated_total × phase1_fee_pct', unit: 'usd' },
   { key: 'phase1_fee_50pct_upfront',          label: '50% of Phase 1 fee due at signing',                                    type: 'calc',   formula: 'phase1_fee × 50%',                 unit: 'usd' },
   { key: 'phase1_fee_50pct_delivery',         label: '50% of Phase 1 fee due at delivery of Phase 1 deliverables',           type: 'calc',   formula: 'phase1_fee × 50%',                 unit: 'usd' },
@@ -41,15 +66,15 @@ const FIELDS = [
   { key: 'payment_equipment_pct',             label: 'Payment due upon delivery of equipment to site',                       type: 'stable', dflt: '35%', unit: 'pct' },
   { key: 'payment_installation_pct',          label: 'Payment due upon completion of installation',                          type: 'stable', dflt: '25%', unit: 'pct' },
   { key: 'payment_closeout_pct',              label: 'Payment due upon PTO and closeout docs',                               type: 'stable', dflt: '15%', unit: 'pct' },
-  { key: 'prevailing_wage',                   label: 'Prevailing wage',                                                       type: 'job',    widget: 'toggle', options: ['is', 'is not'] },
+  { key: 'prevailing_wage',                   label: 'Prevailing wage',                                                       type: 'job',    fillStatus: 'manual',     widget: 'toggle', options: ['yes', 'no'] },
   { key: 'workmanship_warranty_years',        label: 'Workmanship warranty period in years',                                  type: 'stable', dflt: '1' },
   { key: 'design_warranty_years',             label: 'Phase 1 design and engineering warranty in years',                     type: 'stable', dflt: '1' },
   { key: 'contractor_signatory_name',         label: 'Full name of person signing on behalf of contractor',                   type: 'stable', dflt: '' },
   { key: 'contractor_signatory_title',        label: 'Title of contractor signatory (e.g. President)',                        type: 'stable', dflt: '' },
-  { key: 'contract_date',                     label: 'Date contract is signed (same as or later than effective date)',         type: 'job' },
-  { key: 'customer_name',                     label: 'Full name of customer individual signing the contract',                 type: 'job' },
-  { key: 'customer_title',                    label: 'Title of customer signatory — leave blank if sole proprietor',          type: 'job' },
-  { key: 'site_photo',                        label: 'Site photo — appears at top of contract',                              type: 'job',    widget: 'photo' },
+  { key: 'contract_date',                     label: 'Date contract is signed (same as or later than effective date)',         type: 'job',    fillStatus: 'at_signing' },
+  { key: 'customer_name',                     label: 'Full name of customer individual signing the contract',                 type: 'job',    fillStatus: 'at_signing' },
+  { key: 'customer_title',                    label: 'Title of customer signatory — leave blank if sole proprietor',          type: 'job',    fillStatus: 'at_signing' },
+  { key: 'site_photo',                        label: 'Site photo — appears at top of contract',                               type: 'job',    fillStatus: 'optional',   widget: 'photo' },
 ];
 
 const LEFT_KEYS  = FIELDS.filter(f => f.type === 'job' || f.type === 'calc').map(f => f.key);
@@ -77,17 +102,26 @@ function normalizePct(val) {
 function normalizeUsd(val) {
   const s = String(val).trim();
   if (!s) return s;
-  if (s.startsWith('$')) return s;
-  const n = parseFloat(s.replace(/[,%\s]/g, ''));
+  const n = parseFloat(s.replace(/[$,\s]/g, ''));
   if (isNaN(n)) return val;
-  const numStr = s.includes(',') ? s : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-  return '$' + numStr;
+  return '$' + Math.round(n).toLocaleString('en-US');
 }
 function normalizeValue(val, unit) {
   if (!unit || !val) return val;
   if (unit === 'pct') return normalizePct(val);
   if (unit === 'usd') return normalizeUsd(val);
   return val;
+}
+// Match a CSV-loaded string against a known options list, ignoring case and
+// non-alphanumeric characters. Optional aliases map (keyed by stripped lowercase)
+// is checked first to handle abbreviations like 'c'→'C corporation'.
+function normalizeSelectValue(val, options, aliases) {
+  if (!val || !options) return val;
+  const strip = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+  const stripped = strip(val);
+  if (aliases && stripped in aliases) return aliases[stripped];
+  const match = options.find(o => strip(o) === stripped);
+  return match !== undefined ? match : val;
 }
 function normalizeAllValues(vals) {
   const out = { ...vals };
@@ -111,7 +145,7 @@ function parseMoney(str) {
 }
 function fmtUsd(n) {
   if (!n || isNaN(n)) return '';
-  return '$' + n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return '$' + Math.round(n).toLocaleString('en-US');
 }
 function calcFields(vals) {
   const total = parseMoney(vals.estimated_total);
@@ -232,9 +266,61 @@ async function addPhotoToDocx(docxBlob, photoData) {
 // CSV helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ── Legacy Makello database export ───────────────────────────────────────────
+// The Makello CRM exports a wide CSV: row 0 = field names spread across
+// columns, row 1 = corresponding values. This is the opposite orientation from
+// the normal contract_input CSV (one row per field, field name in col A).
+//
+// Detection: the legacy file's first row contains 'owner_name' as one of its
+// column headers. The normal contract_input file's first column always starts
+// with 'description' or a similar label.
+//
+// Field mapping — only three legacy fields currently map to contract_input:
+//   owner_name   → customer_org_name   (customer organization name)
+//   address      → customer_address    (site address)
+//   gross_cost   → estimated_total     (estimated total project cost)
+// Additional mappings can be added to LEGACY_FIELD_MAP as the Makello export
+// is extended.
+
+const LEGACY_FIELD_MAP = {
+  'owner_name':  'customer_org_name',
+  'address':     'customer_address',
+  'gross_cost':  'estimated_total',
+};
+
+function isLegacyCsv(rows) {
+  // Legacy Makello export: vertical format — one field per row,
+  // col[0] = field name, col[1] = value. The first row has col[0] === 'owner_name'.
+  // Normal contract_input CSV: col[0] is 'description' or 'placeholder'.
+  if (rows.length < 1) return false;
+  return String(rows[0][0]).trim() === 'owner_name';
+}
+
+function parseLegacyCsv(rows) {
+  // Vertical format: each row is [field_name, value, ...extra cols ignored].
+  // Iterate all rows; look up col[0] in LEGACY_FIELD_MAP; use col[1] as value.
+  const out = {};
+  for (const row of rows) {
+    if (row.length < 2) continue;
+    const fieldName = String(row[0]).trim();
+    const mapped = LEGACY_FIELD_MAP[fieldName];
+    if (mapped !== undefined) {
+      const value = String(row[1]).trim();
+      if (value) out[mapped] = value;
+    }
+  }
+  return out;
+}
+
 function parseCsv(text) {
   const rows = Papa.parse(text.trim(), { skipEmptyLines: true }).data;
-  const out  = {};
+
+  // Route to legacy parser when the file is a Makello database export
+  if (isLegacyCsv(rows)) {
+    return { data: parseLegacyCsv(rows), legacy: true };
+  }
+
+  const out = {};
   for (const row of rows) {
     if (row.length < 2) continue;
     const c0 = String(row[0]).trim(), c1 = String(row[1]).trim();
@@ -245,7 +331,7 @@ function parseCsv(text) {
     } else { key = c0; value = c1; }
     if (key) out[key] = value;
   }
-  return out;
+  return { data: out, legacy: false };
 }
 function loadStableFromStorage() {
   try { const s = localStorage.getItem(LS_KEY); if (s) return { ...HARDCODED_DEFAULTS, ...JSON.parse(s) }; }
@@ -303,6 +389,25 @@ const C = {
   calc:   { bg: '#fffff0', bdr: '#faf089', lbl: '#975a16' },
 };
 
+// Visual tokens for each fillStatus × fill-state combination.
+// leftBdr: the 3px left accent on the card.
+// pillText / pillColor: compact status label shown when empty.
+//
+// 'upload' and 'manual' render identically — both mean "required input" from
+//   the user's perspective. The distinction is semantic only (upload = can come
+//   from a Makello/CSV file; manual = must be typed or added to the CSV) but
+//   there is no meaningful visual difference to show.
+// 'optional'   — legitimately blank. Grey.
+// 'at_signing' — intentionally blank until contract execution. Deep blue,
+//   clearly distinct from the filled green.
+const REQUIRED_STATUS = { emptyBdr: '#ed8936', filledBdr: '#48bb78', pillText: '⬆ required', pillColor: '#c05621' };
+const FILL_STATUS_CONFIG = {
+  upload:     REQUIRED_STATUS,
+  manual:     REQUIRED_STATUS,
+  optional:   { emptyBdr: '#cbd5e0', filledBdr: '#cbd5e0', pillText: 'optional',    pillColor: '#718096' },
+  at_signing: { emptyBdr: '#2b6cb0', filledBdr: '#48bb78', pillText: 'at signing',  pillColor: '#2b6cb0' },
+};
+
 function UnitBadge({ unit }) {
   if (!unit) return null;
   const [label, bg, color] = unit === 'pct'
@@ -320,16 +425,33 @@ function UnitBadge({ unit }) {
 // Field widgets
 // ─────────────────────────────────────────────────────────────────────────────
 
-function FieldShell({ field, dimmed, children }) {
-  const col = C[field.type] || C.job;
+function FieldShell({ field, value, dimmed, children }) {
+  const col  = C[field.type] || C.job;
+  const fsc  = field.fillStatus ? FILL_STATUS_CONFIG[field.fillStatus] : null;
+  const filled = fsc && String(value ?? '').trim() !== '';
+  const leftBdr = fsc ? (filled ? fsc.filledBdr : fsc.emptyBdr) : null;
+
   return (
-    <div style={{ background: col.bg, border: `1px solid ${col.bdr}`, borderRadius: 6,
-                  padding: '6px 10px', opacity: dimmed ? 0.4 : 1, transition: 'opacity .2s' }}>
-      <div style={{ fontSize: 11, color: col.lbl, marginBottom: 3, lineHeight: 1.3 }}>
-        {field.label}
-        <UnitBadge unit={field.unit} />
-        {field.type === 'calc' && (
-          <span style={{ marginLeft: 6, fontSize: 10, color: '#b7791f' }}>= {field.formula}</span>
+    <div style={{ background: col.bg,
+                  border: `1px solid ${leftBdr || col.bdr}`,
+                  borderLeft: `3px solid ${leftBdr || col.bdr}`,
+                  borderRadius: 6, padding: '6px 10px',
+                  opacity: dimmed ? 0.4 : 1, transition: 'opacity .2s' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between',
+                    alignItems: 'baseline', marginBottom: 3, gap: 6 }}>
+        <div style={{ fontSize: 11, color: col.lbl, lineHeight: 1.3 }}>
+          {field.label}
+          <UnitBadge unit={field.unit} />
+          {field.type === 'calc' && (
+            <span style={{ marginLeft: 6, fontSize: 10, color: '#b7791f' }}>= {field.formula}</span>
+          )}
+        </div>
+        {fsc && !filled && (
+          <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: '0.04em',
+                         textTransform: 'uppercase', color: fsc.pillColor,
+                         whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {fsc.pillText}
+          </span>
         )}
       </div>
       {children}
@@ -342,7 +464,7 @@ const inputBase = { width: '100%', border: 'none', background: 'transparent',
 
 function SelectField({ field, value, locked, onChange }) {
   return (
-    <FieldShell field={field}>
+    <FieldShell field={field} value={value}>
       <select value={value} disabled={locked} onChange={e => onChange && onChange(e.target.value)}
         style={{ ...inputBase, borderBottom: locked ? 'none' : `1px solid ${C[field.type]?.bdr || '#e2e8f0'}`,
                  cursor: locked ? 'default' : 'pointer', appearance: locked ? 'none' : 'auto' }}>
@@ -354,7 +476,7 @@ function SelectField({ field, value, locked, onChange }) {
 
 function ToggleField({ field, value, locked, onChange }) {
   return (
-    <FieldShell field={field}>
+    <FieldShell field={field} value={value}>
       <div style={{ display: 'flex', gap: 4, marginTop: 2 }}>
         {(field.options || ['is', 'is not']).map(opt => {
           const active = value === opt;
@@ -403,7 +525,7 @@ function PhotoUploadField({ field, photo, onPhotoChange, csvPhotoName }) {
   }
 
   return (
-    <FieldShell field={field}>
+    <FieldShell field={field} value={photo ? photo.name : ''}>
       {photo ? (
         <div style={{ display: 'flex', gap: 10, alignItems: 'center', marginTop: 4 }}>
           <img src={photo.dataUrl} alt="site" style={{ height: 64, maxWidth: 96, objectFit: 'cover', borderRadius: 4, border: '1px solid #e2e8f0' }} />
@@ -450,7 +572,7 @@ function FieldRow({ field, value, locked, onChange, dimmed, photo, onPhotoChange
   if (field.widget === 'select') return <SelectField field={field} value={value} locked={locked} onChange={onChange} />;
   if (field.widget === 'toggle') return <ToggleField  field={field} value={value} locked={locked} onChange={onChange} />;
   return (
-    <FieldShell field={field} dimmed={dimmed}>
+    <FieldShell field={field} value={value} dimmed={dimmed}>
       <input type="text" value={value} readOnly={locked}
         onChange={e => onChange && onChange(e.target.value)}
         onBlur={() => { if (!locked && field.unit && onChange) { const n = normalizeValue(value, field.unit); if (n !== value) onChange(n); } }}
@@ -477,21 +599,12 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Pre-flight validation
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Fields that may legitimately be left blank
-const OPTIONAL_KEYS = new Set([
-  'site_photo',              // optional — no photo is fine
-  'customer_title',          // blank for sole proprietors
-  'customer_tax_status_other', // only required when tax status === 'Other'
-]);
-
-function getMissingFields(allValues, taxStatus) {
+// Required fields are those with fillStatus 'upload' or 'manual'.
+// 'optional' and 'at_signing' fields are never counted as missing.
+function getMissingFields(allValues) {
   const missing = [];
   for (const f of FIELDS) {
-    if (f.type === 'calc')       continue;  // auto-calculated, never blank
-    if (f.widget === 'photo')    continue;  // handled by OPTIONAL_KEYS
-    if (OPTIONAL_KEYS.has(f.key)) continue;
-    // customer_tax_status_other: only required when tax status is Other
-    if (f.key === 'customer_tax_status_other' && taxStatus !== 'Other') continue;
+    if (f.fillStatus !== 'upload' && f.fillStatus !== 'manual') continue;
     const val = allValues[f.key];
     if (!val || String(val).trim() === '') missing.push({ key: f.key, label: f.label });
   }
@@ -537,18 +650,24 @@ function App() {
 
   // ── CSV load ─────────────────────────────────────────────────────────────
   function applyCsvData(text, fname) {
-    const parsed = parseCsv(text);
+    const { data: parsed, legacy } = parseCsv(text);
     const newJob = { ...job };
     let matched = 0;
     for (const key of JOB_KEYS) {
       if (parsed[key] !== undefined && parsed[key] !== '') {
         const field = FIELDS.find(f => f.key === key);
-        newJob[key] = normalizeValue(parsed[key], field?.unit);
+        let v = normalizeValue(parsed[key], field?.unit);
+        if (field?.widget === 'select') v = normalizeSelectValue(v, TAX_STATUS_OPTIONS, TAX_STATUS_ALIASES);
+        if (field?.widget === 'toggle') v = normalizeSelectValue(v, field.options);
+        newJob[key] = v;
         matched++;
       }
     }
     setJob(newJob); setOriginalJob({ ...newJob }); setCsvFile(fname);
-    setStatus(matched > 0 ? `✓ ${fname} — ${matched} field${matched !== 1 ? 's' : ''} populated` : `⚠ ${fname} — no matching fields found`);
+    const fmtNote = legacy ? ' (legacy Makello format — partial data)' : '';
+    setStatus(matched > 0
+      ? `✓ ${fname}${fmtNote} — ${matched} field${matched !== 1 ? 's' : ''} populated`
+      : `⚠ ${fname}${fmtNote} — no matching fields found`);
   }
   function onCsvFile(e) {
     const f = e.target.files[0]; if (!f) return;
@@ -607,7 +726,7 @@ function App() {
     setDiagErrors([]);
 
     // ── Pre-flight: check required fields before touching the template ──────
-    const missing = getMissingFields(allValues, job.customer_tax_status);
+    const missing = getMissingFields(allValues);
     if (missing.length > 0) {
       setStatus(`✗ ${missing.length} required field${missing.length !== 1 ? 's' : ''} empty — fill them in and try again`);
       setDiagErrors(missing.map(f => ({ id: 'missing', tag: f.key, offset: '', message: f.label })));
@@ -632,6 +751,29 @@ function App() {
         delimiters: { start: '{{', end: '}}' },
       });
       const mergeData = normalizeAllValues({ ...allValues, site_photo: '' });
+
+      // Map yes/no → is/is not for the prevailing wage contract clause
+      if (mergeData.prevailing_wage in PREVAILING_WAGE_OUTPUT)
+        mergeData.prevailing_wage = PREVAILING_WAGE_OUTPUT[mergeData.prevailing_wage];
+
+      // Tax status resolution: customer_tax_status_other is UI-only.
+      // If "Other" is selected, promote whatever was typed to customer_tax_status.
+      // Always clear customer_tax_status_other so it never appears in the document.
+      if (mergeData.customer_tax_status === 'Other')
+        mergeData.customer_tax_status = mergeData.customer_tax_status_other || '';
+      mergeData.customer_tax_status_other = '';
+
+      // Replace blank fields with underscores so the printed document has space
+      // to fill in by hand. Skips site_photo (binary), non-job/calc fields, and
+      // input-only fields that have already been resolved above.
+      const BLANK_LINE = '___________';
+      const NO_UNDERSCORE = new Set(['customer_tax_status_other']);
+      for (const f of FIELDS) {
+        if (f.type !== 'job' && f.type !== 'calc') continue;
+        if (f.widget === 'photo') continue;
+        if (NO_UNDERSCORE.has(f.key)) continue;
+        if (!mergeData[f.key]) mergeData[f.key] = BLANK_LINE;
+      }
       doc.render(mergeData);
 
       // 2. Extract rendered document.xml, strip comment anchors
@@ -699,7 +841,7 @@ function App() {
   }));
   const setStableField = (key, val) => setStable(prev => ({ ...prev, [key]: val }));
   const statusIsGood   = status.startsWith('✓');
-  const missingCount   = getMissingFields(allValues, job.customer_tax_status).length;
+  const missingCount   = getMissingFields(allValues).length;
   const readyToGenerate = missingCount === 0;
   const taxIsOther     = job.customer_tax_status === 'Other';
 
@@ -711,7 +853,7 @@ function App() {
       <div style={{ background: '#1a365d', color: 'white', padding: '10px 20px',
                     display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontWeight: 700, fontSize: 17 }}>Makello Contract Tool</span>
-        <span style={{ fontSize: 11, opacity: 0.45 }}>v0.2.7</span>
+        <span style={{ fontSize: 11, opacity: 0.45 }}>v0.3.5</span>
         <button onClick={() => setShowHelp(h => !h)} title="Help"
           style={{ padding: '2px 10px', fontSize: 12, borderRadius: 4, border: '1px solid rgba(255,255,255,0.3)',
                    background: showHelp ? 'rgba(255,255,255,0.2)' : 'transparent',
@@ -888,6 +1030,23 @@ function App() {
               <Btn onClick={downloadBlankCsv}>⬇ Blank CSV</Btn>
               <Btn onClick={exportCsv} bg="#2c7a7b" bdr="#285e61" color="white">↑ Export CSV</Btn>
             </div>
+          </div>
+
+          {/* Field status legend */}
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 8, fontSize: 10,
+                        fontWeight: 700, letterSpacing: '0.04em', textTransform: 'uppercase' }}>
+            {[
+              { bdr: '#ed8936', text: '⬆ required',   desc: 'needs a value — load a CSV file or type' },
+              { bdr: '#2b6cb0', text: 'at signing',    desc: 'intentionally blank until contract execution' },
+              { bdr: '#cbd5e0', text: 'optional',      desc: 'can be left blank' },
+              { bdr: '#48bb78', text: '✓ filled',      desc: 'has a value' },
+            ].map(({ bdr, text, desc }) => (
+              <span key={text} title={desc}
+                style={{ display: 'flex', alignItems: 'center', gap: 4, color: '#4a5568', cursor: 'default' }}>
+                <span style={{ display: 'inline-block', width: 3, height: 14, background: bdr, borderRadius: 2 }} />
+                {text}
+              </span>
+            ))}
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>

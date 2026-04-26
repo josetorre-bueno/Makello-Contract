@@ -5,6 +5,7 @@
 **Deployed at:** contract.cc-energy.org
 **GitHub repo:** https://github.com/josetorre-bueno/Makello-Contract
 **Current version:** v0.3.5
+**Memory files:** `memory/` directory — project context, deployment, template placeholders. Read at session start.
 
 ---
 

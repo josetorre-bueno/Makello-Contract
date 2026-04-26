@@ -2,7 +2,9 @@
 
 **Owner:** Jose Torre-Bueno (jose.torrebueno@cc-energy.org), Center for Community Energy
 **Purpose:** Browser-based tool that ingests a Makello/Wipomo CSV and fills a Word contract template, then downloads the result as a .docx
-**Deployed at:** tools.cc-energy.org (GitHub Pages, same as other CCE tools)
+**Deployed at:** contract.cc-energy.org
+**GitHub repo:** https://github.com/josetorre-bueno/Makello-Contract
+**Current version:** v0.3.5
 
 ---
 
@@ -16,7 +18,53 @@ Same pattern as all other CCE tools (see `~/Downloads/Project Files/CLAUDE.md` f
 
 **Two-file pattern:**
 - `contract_tool.html` — stable HTML wrapper
-- `contract_tool_app_vX.Y.Z.jsx` — versioned JSX module
+- `contract_tool_app_vX.Y.Z.jsx` — versioned JSX module (rename-on-bump)
+
+---
+
+## Deployment
+
+**Hosting:** Cloudflare Pages (free tier), auto-deploys on every push to the `main` branch of `josetorre-bueno/Makello-Contract`.
+
+**URLs:**
+- `contract.cc-energy.org` — custom domain (primary)
+- `makello-contract.pages.dev` — Cloudflare default URL
+
+**DNS:** `contract.cc-energy.org` is a CNAME in EasyDNS pointing to `makello-contract.pages.dev`. DNS is managed at EasyDNS (accessed via Cloudways sysadmin account).
+
+**Cloudflare account:** Jose.torrebueno@cc-energy.org — credentials recorded separately. Dashboard at dash.cloudflare.com. The `makello-contract` Pages project is listed under Workers & Pages.
+
+**Note:** This repo was accidentally developed inside the `josetorre-bueno/cce-solar-tools` repo during the session of 2026-04-25 (v0.2.8–v0.3.5). All work was moved to this repo on the same day. The CCE solar tools project at `tools.cc-energy.org` is a separate Cloudflare Pages project connected to `josetorre-bueno/cce-solar-tools`.
+
+**How to add a new Pages project with custom domain in Cloudflare:**
+
+1. Go to dash.cloudflare.com → **Workers & Pages**
+2. Click **Create application**
+3. At the bottom of the screen click **"Looking to deploy Pages? Get started"** (easy to miss — the main options on that screen are all for Workers)
+4. Choose **Continue with GitHub**, select the repository
+5. Set: Branch = `main`, Framework preset = None, Build command = blank (or `true` if a value is required), Output directory = `/`
+6. Click **Save and Deploy**
+7. Once deployed, click **Add a custom domain**
+8. Enter the desired subdomain (e.g. `contract.cc-energy.org`)
+9. Choose **Begin CNAME setup** (not "Cloudflare DNS" — DNS is at EasyDNS)
+10. Cloudflare shows the CNAME record to add: host = subdomain (e.g. `contract`), points to = `projectname.pages.dev`
+11. Log into EasyDNS (via Cloudways sysadmin account), add that CNAME record
+12. Cloudflare polls automatically — domain activates within minutes to an hour
+
+**Note:** The "Create application" flow defaults to Workers. The Pages entry point is the small "Get started" link at the bottom of that screen. If you end up in a flow that asks for `npx wrangler deploy` as a build command or shows `*.workers.dev` URLs, you are in the Workers path — go back and use the "Get started" link instead.
+
+---
+
+**GitHub upload method:** Git clone lives at `/tmp/makello-contract`. After editing files locally, copy and push:
+```bash
+cp ~/Downloads/Wipomo\ Contract\ tool/contract_tool_app_vX.Y.Z.jsx /tmp/makello-contract/
+cp ~/Downloads/Wipomo\ Contract\ tool/contract_tool.html /tmp/makello-contract/
+cd /tmp/makello-contract
+git add contract_tool_app_vX.Y.Z.jsx contract_tool.html
+git commit -m "Contract tool vX.Y.Z — description"
+git push
+```
+The clone lives in `/tmp` and may not persist between sessions. If missing: `git clone https://github.com/josetorre-bueno/Makello-Contract /tmp/makello-contract`
 
 ---
 
@@ -70,7 +118,7 @@ Unpacked XML: `unpacked/` directory
 | `{{customer_org_name}}` | CSV `owner_name` |
 | `{{customer_address}}` | CSV `address` |
 | `{{customer_tax_status}}` | Manual |
-| `{{customer_tax_status_other}}` | Manual (conditional) |
+| `{{customer_tax_status_other}}` | **Removed from template** — input-only UI field. If "Other" selected, its value is promoted to `{{customer_tax_status}}` at merge time. Always cleared to blank in output. |
 | `{{initial_target_capacity}}` | CSV: formatted from `system_size` + `battery_type` |
 | `{{material_escalation_threshold_pct}}` | Manual (stable default: 5%) |
 | `{{labor_escalation_threshold_pct}}` | Manual (stable default: 5%) |
@@ -85,7 +133,7 @@ Unpacked XML: `unpacked/` directory
 | `{{payment_equipment_pct}}` | Manual (stable default: 35%) |
 | `{{payment_installation_pct}}` | Manual (stable default: 25%) |
 | `{{payment_closeout_pct}}` | Manual (stable default: 15%) |
-| `{{prevailing_wage}}` | Manual: "is" or "is not" |
+| `{{prevailing_wage}}` | UI toggle shows "yes"/"no"; mapped to "is"/"is not" at merge time to fit contract clause language |
 | `{{workmanship_warranty_years}}` | Manual (stable default: 1) |
 | `{{design_warranty_years}}` | Manual (stable default: 1) |
 | `{{contractor_signatory_name}}` | Manual (stable) |
@@ -122,50 +170,42 @@ Unpacked XML: `unpacked/` directory
 
 ## Version numbering
 
+Follow the global config versioning rules. Contract tool uses **rename-on-bump** pattern.
+
 **Every change, no matter how small, must:**
-1. Increment the minor version number (`vX.Y.Z` → `vX.Y+1.Z`)
+1. Increment the **patch** version number (`vX.Y.Z` → `vX.Y.Z+1`)
 2. Update the date/time stamp in the file header comment
 3. Copy the previous version file to the new filename (never edit the old file in place)
-4. Update `contract_tool.html` to point to the new filename
+4. Update `index.html` to point to the new filename
 5. Add a changelog entry at the top of the new file describing what changed
 
-Format: `vX.Y.Z` — never abbreviate. A single-character typo fix is still a version bump.
-A new copy is always created — old versions are kept as the revision history.
+Format: `vX.Y.Z` — never abbreviate. A single-character typo fix is still a patch bump.
+Old versions are kept as local revision history in `old_versions/` (gitignored).
 
 ---
 
 ## Coding standards
 
-### CSV files — character encoding
-
-**Always prepend a UTF-8 BOM (`\uFEFF`) to every generated CSV file.**
-
-Without the BOM, Excel on macOS/Windows interprets UTF-8 as the system default encoding and renders
-em-dashes, percent signs, accented characters, and other non-ASCII glyphs as garbled characters
-(commonly visible as the Swedish Å — the `Ã` / `Â` artifacts from mis-reading UTF-8 byte sequences).
-
-The BOM tells Excel to open the file as UTF-8, preserving all characters correctly.
-
-Implementation in JavaScript:
-```js
-saveAs(
-  new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' }),
-  'filename.csv'
-);
-```
-
-This applies to **every** `saveAs` call that produces a `.csv` file, including blank templates and
-exported/updated input files.
+See global config for CSV UTF-8 BOM requirement, cache-busting, and local testing rules. All apply here.
 
 ---
 
 ## Status
 
-App built through v0.1.3. Current feature state:
+Current version: **v0.3.5** (2026-04-25)
+
+Feature state:
 - Two-column layout: per-job fields (left) + stable contractor defaults (right)
-- CSV load (drop or browse), blank CSV download, CSV export with change notes (Col D)
-- Tax status dropdown, prevailing wage is/is not toggle
+- CSV load (drop or browse), blank CSV download, CSV export with change notes
+- Legacy Makello CSV detection: vertical format (`owner_name`, `address`, `gross_cost` → mapped fields)
+- Tax status dropdown with fuzzy CSV matching: accepts `c`, `C corp`, `s`, `S corp`, `non-profit`, `501(c)3`, etc.
+- Tax status "Other" handling: UI-only input field, value promoted to `customer_tax_status` at merge; `customer_tax_status_other` always blank in output
+- Prevailing wage toggle: yes/no in UI → is/is not in document
+- Dollar amounts rounded to whole dollars (no cents)
+- Blank fields replaced with `___________` in output for hand-writing space (except resolved/photo fields)
+- Field status color coding: amber = required, deep blue = at signing, grey = optional, green = filled
 - Unit normalisation: % and $ added automatically on blur and before merge
-- Stable defaults persist via localStorage + `contract_defaults.json` (fetched on load)
-- Lock/unlock: ✏️ Edit Defaults / 🔒 Lock Defaults verb-first buttons
-- Image insertion ({{site_photo}}) deferred to v0.2
+- Stable defaults persist via localStorage
+- Lock/unlock: ✏️ Edit Defaults / 🔒 Lock Defaults
+- Site photo image insertion ({{site_photo}}) supported
+- Auth gate: `contract_auth.js` (Makello-specific password)

@@ -1,0 +1,18 @@
+# Cloudflare Pages cache rules
+# HTML: never cache — always fetch fresh so version bumps propagate immediately
+/*.html
+  Cache-Control: no-cache, must-revalidate
+
+/index.html
+  Cache-Control: no-cache, must-revalidate
+
+# JSX/JS: cache aggressively — filenames are versioned so stale content is impossible
+/*.jsx
+  Cache-Control: public, max-age=31536000, immutable
+
+/*.js
+  Cache-Control: public, max-age=31536000, immutable
+
+# Docx templates: short cache — these get replaced without a filename change
+/*.docx
+  Cache-Control: public, max-age=300

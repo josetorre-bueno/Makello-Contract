@@ -1,10 +1,12 @@
 # Cloudflare Pages cache rules
 # HTML: never cache — always fetch fresh so version bumps propagate immediately
 /*.html
-  Cache-Control: no-cache, must-revalidate
+  Cache-Control: no-store
+  CDN-Cache-Control: no-store
 
 /index.html
-  Cache-Control: no-cache, must-revalidate
+  Cache-Control: no-store
+  CDN-Cache-Control: no-store
 
 # JSX/JS: cache aggressively — filenames are versioned so stale content is impossible
 /*.jsx

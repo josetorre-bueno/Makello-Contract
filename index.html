@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Makello Contract Tool (Beta) v0.3.14</title>
+  <title>Makello Contract Tool (Beta) v0.3.15</title>
 
   <!-- React -->
   <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
@@ -22,6 +22,12 @@
   <!-- PapaParse (CSV parsing) -->
   <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
 
+  <!-- mammoth.js (docx → HTML for PDF conversion) -->
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1/mammoth.browser.min.js"></script>
+
+  <!-- html2pdf.js (HTML → PDF via html2canvas + jsPDF) -->
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
   <!-- Auth gate (Makello-specific password) -->
   <script src="contract_auth.js"></script>
 
@@ -33,6 +39,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" src="contract_tool_app_v0.3.14.jsx?v=0.3.14"></script>
+  <script type="text/babel" src="contract_tool_app_v0.3.15.jsx?v=0.3.15"></script>
 </body>
 </html>

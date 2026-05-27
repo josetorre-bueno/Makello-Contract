@@ -54,15 +54,26 @@
       #auth-box p {
         font-size: 13px; color: #8ba8c4; margin-bottom: 1.75rem;
       }
+      .auth-pw-wrap {
+        position: relative; margin-bottom: 0.75rem;
+      }
       #auth-input {
-        width: 100%; padding: 0.7rem 1rem;
+        width: 100%; padding: 0.7rem 2.6rem 0.7rem 1rem;
         background: #0d1520; border: 1px solid #2a3d52;
         border-radius: 8px; color: #e8edf2; font-size: 15px;
-        outline: none; margin-bottom: 0.75rem;
+        outline: none; box-sizing: border-box;
         font-family: 'DM Mono', monospace;
         letter-spacing: 0.05em;
       }
       #auth-input:focus { border-color: #4a9eff; }
+      #auth-show {
+        position: absolute; right: 0.6rem; top: 50%;
+        transform: translateY(-50%);
+        background: none; border: none; cursor: pointer;
+        color: #8ba8c4; font-size: 13px; padding: 0.2rem 0.3rem;
+        line-height: 1; user-select: none;
+      }
+      #auth-show:hover { color: #4a9eff; }
       #auth-btn {
         width: 100%; padding: 0.7rem;
         background: #4a9eff; border: none; border-radius: 8px;
@@ -91,7 +102,10 @@
         <div class="auth-logo">Makello / Center for Community Energy</div>
         <h2>Contract Tool</h2>
         <p>Internal access only. Enter the password to continue.</p>
-        <input id="auth-input" type="password" placeholder="Password" autocomplete="current-password" />
+        <div class="auth-pw-wrap">
+          <input id="auth-input" type="password" placeholder="Password" autocomplete="current-password" />
+          <button id="auth-show" type="button" title="Show password">Show</button>
+        </div>
         <button id="auth-btn">Enter</button>
         <div id="auth-error"></div>
       </div>
@@ -124,6 +138,14 @@
 
     btn.addEventListener('click', attempt);
     input.addEventListener('keydown', e => { if (e.key === 'Enter') attempt(); });
+
+    const showBtn = document.getElementById('auth-show');
+    showBtn.addEventListener('click', () => {
+      const isHidden = input.type === 'password';
+      input.type = isHidden ? 'text' : 'password';
+      showBtn.textContent = isHidden ? 'Hide' : 'Show';
+    });
+
     input.focus();
   }
 

@@ -3,20 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Makello Contract Tool (Beta) v0.4.6</title>
+  <title>Makello Contract Tool (Beta) v0.4.7</title>
 
   <!-- Dependencies: local copies for offline use (download with get-deps.sh) -->
-  <script src="react.development.js"></script>
-  <script src="react-dom.development.js"></script>
-  <script src="babel.min.js"></script>
-  <script src="pizzip.js"></script>
-  <script src="docxtemplater.js"></script>
-  <script src="FileSaver.min.js"></script>
-  <script src="papaparse.min.js"></script>
-  <script src="mammoth.browser.min.js"></script>
+  <!-- ?v= query strings force browser cache refresh when files change.        -->
+  <!-- These filenames never change, so without versioning they'd be cached    -->
+  <!-- permanently by the immutable Cache-Control rule in _headers.            -->
+  <script src="react.development.js?v=0.4.7"></script>
+  <script src="react-dom.development.js?v=0.4.7"></script>
+  <script src="babel.min.js?v=0.4.7"></script>
+  <script src="pizzip.js?v=0.4.7"></script>
+  <script src="docxtemplater.js?v=0.4.7"></script>
+  <script src="FileSaver.min.js?v=0.4.7"></script>
+  <script src="papaparse.min.js?v=0.4.7"></script>
+  <script src="mammoth.browser.min.js?v=0.4.7"></script>
 
   <!-- Auth gate (Makello-specific password) -->
-  <script src="contract_auth.js"></script>
+  <script src="contract_auth.js?v=0.4.7"></script>
 
   <style>
     * { box-sizing: border-box; }
@@ -26,6 +29,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" src="contract_tool_app_v0.4.6.jsx?v=0.4.6"></script>
+  <script type="text/babel" src="contract_tool_app_v0.4.7.jsx?v=0.4.7"></script>
 </body>
 </html>

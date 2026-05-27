@@ -3,27 +3,17 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Makello Contract Tool (Beta) v0.3.25</title>
+  <title>Makello Contract Tool (Beta) v0.4.5</title>
 
-  <!-- React -->
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-
-  <!-- Babel (JSX transpiler) -->
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-
-  <!-- PizZip + Docxtemplater (client-side Word template filling) -->
-  <script src="https://unpkg.com/pizzip@3/dist/pizzip.js"></script>
-  <script src="https://unpkg.com/docxtemplater@3/build/docxtemplater.js"></script>
-
-  <!-- FileSaver (download trigger) -->
-  <script src="https://unpkg.com/file-saver@2/dist/FileSaver.min.js"></script>
-
-  <!-- PapaParse (CSV parsing) -->
-  <script src="https://unpkg.com/papaparse@5/papaparse.min.js"></script>
-
-  <!-- mammoth.js (docx → HTML for print-to-PDF conversion) -->
-  <script src="https://cdn.jsdelivr.net/npm/mammoth@1/mammoth.browser.min.js"></script>
+  <!-- Dependencies: local copies for offline use (download with get-deps.sh) -->
+  <script src="react.development.js"></script>
+  <script src="react-dom.development.js"></script>
+  <script src="babel.min.js"></script>
+  <script src="pizzip.js"></script>
+  <script src="docxtemplater.js"></script>
+  <script src="FileSaver.min.js"></script>
+  <script src="papaparse.min.js"></script>
+  <script src="mammoth.browser.min.js"></script>
 
   <!-- Auth gate (Makello-specific password) -->
   <script src="contract_auth.js"></script>
@@ -36,6 +26,6 @@
 </head>
 <body>
   <div id="root"></div>
-  <script type="text/babel" src="contract_tool_app_v0.3.25.jsx?v=0.3.23"></script>
+  <script type="text/babel" src="contract_tool_app_v0.4.5.jsx?v=0.4.5"></script>
 </body>
 </html>

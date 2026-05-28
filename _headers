@@ -26,3 +26,9 @@
 
 /*.json
   Cache-Control: public, max-age=300
+
+# CSV (shipped translation_defaults.csv and any other CSVs) — same short
+# cache as docx/json. Fetches go through ?v= cache-busting from the JSX
+# for immediate refresh on version bump.
+/*.csv
+  Cache-Control: public, max-age=300

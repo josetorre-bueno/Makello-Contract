@@ -1,4 +1,4 @@
-# translation_defaults.csv — canonical translation table shipped with the app (v0.5.0+)
+# translation_defaults.csv — canonical translation table shipped with the app (v0.5.0+; render-time formulas added v0.6.0)
 internal_key,client_field_expression,required_status,applies_to,heading_1,context_1,heading_2,context_2,heading_3,context_3,heading_4,context_4
 effective_date,[effective_date],optional,both,★ ¶3,"...This Agreement is made and entered into as of {{effective_date}} (the ""Effective Date"") by and between:...",,,,,,
 customer_name,[customer_name],at_signing,both,"★ 13.9 Exhibits, ¶16",...Name: {{customer_name}},,,,,,
@@ -12,6 +12,10 @@ estimated_total,[estimated_total],upload,both,"★ 4.2 Phase 1 Fee, ¶2",...Esti
 battery_size_kwh,[battery_size_kwh],upload,pv_battery,"[PV+Bat] ARTICLE 1: DEFINITIONS, ¶3","...equipment, and all associated installation materials, having an initial target capacity of {{battery_size_kwh}} kWh. The Battery Storage System Cost is {{battery_cost}}....","[PV+Bat] 2.3 Estimated System Capacity, ¶2",...Initial Target Battery Storage Capacity: {{battery_size_kwh}} kWh...,,,,
 battery_cost,EXTRACT_DOLLARS([battery_type]),upload,pv_battery,"[PV+Bat] ARTICLE 1: DEFINITIONS, ¶3",...initial target capacity of {{battery_size_kwh}} kWh. The Battery Storage System Cost is {{battery_cost}} ....,"[PV+Bat] 4.2 Phase 1 Fee, ¶4",...Battery Storage System Cost: {{battery_cost}},"[PV+Bat] 6.3 Phase 2 Contract Price, ¶6","...issues a Battery Notice to Proceed, the Battery Storage System Cost of {{battery_cost}} shall be a separate fixed lump sum covering all Battery Storage System...","[PV+Bat] 6.4 Phase 2 Payment Schedule, ¶6","...percentage schedule as the Phase 2 PV System payments above (applied to {{battery_cost}} ), with payment milestones measured from the date of the Battery Notice..."
 include_battery_in_phase1,[include_battery_in_phase1],manual,pv_battery,,,,,,,,
+phase1_fee_base,"IF({{include_battery_in_phase1}} == ""no"", {{estimated_total}} - {{battery_cost}}, {{estimated_total}})",optional,both,,,,,,,,
+phase1_fee,{{phase1_fee_base}} * {{phase1_fee_pct}},optional,both,"★ 4.2 Phase 1 Fee, ¶2",...Phase 1 Fee: {{phase1_fee}}...,,,,,,
+phase1_fee_50pct_upfront,{{phase1_fee}} * 0.5,optional,both,,,,,,,,
+phase1_fee_50pct_delivery,{{phase1_fee}} * 0.5,optional,both,,,,,,,,
 prevailing_wage,[prevailing_wage],manual,both,"★ 6.7 Prevailing Wage Compliance, ¶1","...the best of Customer's knowledge as of the Effective Date, the project {{prevailing_wage}} subject to California prevailing wage requirements. If the Customer is not currently...",,,,,,
 contract_date,[contract_date],at_signing,both,"★ 13.9 Exhibits, ¶12",...Date: {{contract_date}},"★ 13.9 Exhibits, ¶18",...Date: {{contract_date}},,,,
 site_photo,[site_photo],optional,both,,,,,,,,

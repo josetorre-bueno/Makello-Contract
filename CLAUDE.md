@@ -2,9 +2,9 @@
 
 **Owner:** Jose Torre-Bueno (jose.torrebueno@cc-energy.org), Center for Community Energy
 **Purpose:** Browser-based tool that ingests a Makello/Wipomo CSV and fills a Word contract template, then downloads the result as a .docx
-**Deployed at:** contract.cc-energy.org
+**Deployed at:** contract.cc-energy.org (production) · beta.makello-contract.pages.dev (beta)
 **GitHub repo:** https://github.com/josetorre-bueno/Makello-Contract
-**Current version:** v0.4.3
+**Current version:** v0.6.8 (beta); production trails behind — promote with `wrangler ... --branch main`
 **Memory files:** `memory/` directory — project context, deployment, template placeholders. Read at session start.
 
 ---
@@ -176,9 +176,11 @@ Unpacked XML: `unpacked/` directory
 | `contract_fields.csv` | Field manifest: placeholder → description → stability flag |
 | `contract_input_blank.csv` | Blank CSV template for download |
 | `contract_defaults.json` | Saved stable-field defaults |
-| `old_versions/` | All prior JSX versions (v0.1.x through v0.4.2) — gitignored |
+| `translation_defaults.csv` | Shipped translation table (single source since v0.5.0) — CSV column → internal key, render-time formulas, required_status, applies_to |
+| `test/` | Browser matrix test harness (`contract_matrix_test.mjs` + `validate_docx_matrix.py` + README) — drives the real app in headless Chrome across settings combos, validates each .docx. See README; `TARGET_URL` env var tests a deployed build. |
+| `old_versions/` | All prior JSX versions (v0.1.x through v0.6.7) — gitignored |
 | `archive/` | Superseded templates, reference docs, test CSVs — gitignored |
-| `restartofcontractautomationtool/` | Sample Makello CSV (Foo Barson test data) |
+| `restartofcontractautomationtool/` | Sample Makello CSV (Foo Barson test data) — gitignored |
 | `unpacked/` | Unzipped XML of original template (reference only — edit active templates directly) |
 
 ---
@@ -218,28 +220,29 @@ Both folders are active. JSX is developed in `Project Files/` and copied here. T
 
 ## Status
 
-Current version: **v0.4.3** (2026-05-27)
+Current version: **v0.6.8** (2026-05-29) — on beta; production trails behind.
 
 Feature state:
 - Two-column layout: per-job fields (left) + stable contractor defaults (right)
 - Contract type selector: PV Only vs PV+Battery — selects which Word template is used
 - Battery fields visible only when PV+Battery selected; hidden and skipped for PV Only
-- Translation table: maps CSV column names to internal keys via expression language; exportable and uploadable; persisted to localStorage. Includes applies_to column ('both'|'pv_only'|'pv_battery') to filter entries per contract type.
+- **Translation table (v0.5.0+): single source of truth is the shipped `translation_defaults.csv`, fetched on mount.** Upload/Export Translation buttons and localStorage translation were removed; a failed CSV fetch blocks usage (loud, no silent fallback). Columns: internal_key, client_field_expression, required_status, applies_to ('both'|'pv_only'|'pv_battery'), heading/context pairs.
 - initial_target_capacity: two translation rows, one per contract type
-- Two active templates: Wipomo_Contract_Template.docx (PV Only), Wipomo_Contract_Template_Battery.docx (PV+Battery). PV Only template contains no battery-specific placeholders. Battery template fixes &quot; XML entities so context comparison works correctly.
-- evalExpression(): infix arithmetic, [field_refs], functions: ROUND, AVERAGE, SUM, MIN, MAX, ABS, BUILD_CAPACITY, EXTRACT_DOLLARS
-- scanTemplateForContext(): regex-based paragraph extraction for translation export
+- Two active templates: Wipomo_Contract_Template.docx (PV Only), Wipomo_Contract_Template_Battery.docx (PV+Battery). PV Only has no battery placeholders.
+- **Render-time formulas (v0.6.0): derived fields are declared in `translation_defaults.csv` (entries containing `{{...}}`), evaluated on every render — moved out of JS calcFields.** evalExpression(): infix arithmetic, `[csv_col]` (raw CSV) and `{{internal_key}}` (live merged value) refs, `IF(cond,a,b)`, `==`/`!=`, `"string literals"`, percent-aware asNum, functions ROUND/AVERAGE/SUM/MIN/MAX/ABS/BUILD_CAPACITY/EXTRACT_DOLLARS.
 - Three CSV formats: contract_input (3-column), old Makello vertical schema, current Sky-D/Makello schema
 - Tax status dropdown with fuzzy CSV matching; "Other" value promoted at merge
-- phase1_fee_base calc field; phase1_fee_pct, phase1_fee, and 50/50 splits calculated
-- Prevailing wage toggle: yes/no in UI → is/is not in document
+- Prevailing wage toggle: yes/no in UI → is/is not in document (still a hardcoded special case — see memory goal to move to translator)
 - Dollar amounts rounded to whole dollars; % and $ added automatically on blur
 - Blank fields replaced with ___________ in output; filled fields highlighted yellow
-- Clean Copy switch suppresses highlighting
-- Page numbers in output footer
-- Field status color coding: amber = required, deep blue = at signing, grey = optional, green = filled
+- Clean Copy switch suppresses highlighting (strips sentinels instead of adding `<w:highlight>`)
+- Peach (`FFC080`) shading is a source-template editing aid only — stripped from output at ingest (v0.6.3); `highlight_placeholders.py` helper applies/migrates it
+- **Provenance footer (v0.6.8): every page footer carries `Makello vX.Y.Z · <gen-date>` (left) + page number (right). Single `const VERSION`.**
+- Field status color coding: amber = required, deep blue = at signing, grey = optional, green = filled. **effective_date is at-signing (v0.6.8)** — blank to fill at execution, set in BOTH FIELDS and translation required_status.
 - Stable defaults persist via localStorage; Lock/Unlock defaults
 - Site photo image insertion ({{site_photo}})
 - Auth gate: contract_auth.js with show/hide password toggle
-- "Include Addendum" toggle: merges addendum_template.docx; installation_deadline_months controls Addendum §2
+- "Include Addendum" toggle: merges addendum_template.docx; installation_deadline_months controls Addendum §2. **v0.6.7: numbering.xml merge keeps OOXML schema order (all `<w:abstractNum>` before all `<w:num>`) — earlier order violation made Word drop bullets / renumber continuously in addendum-merged .docx.**
+- Optional PDF output via mammoth → browser print dialog (note: mammoth ignores numbering.xml, so PDFs always rendered lists fine even when the v0.6.7 bug was live)
 - Help panel accessible from header
+- **Test harness in `test/`** — drives the real app in headless Chrome across contractType × addendum × cleanCopy, validates each .docx (well-formedness, numbering order, peach, highlight, addendum, battery). Runs against localhost or a deployed `TARGET_URL`.

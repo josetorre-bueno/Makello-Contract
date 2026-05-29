@@ -1,6 +1,6 @@
 # translation_defaults.csv — canonical translation table shipped with the app (v0.5.0+; render-time formulas added v0.6.0)
 internal_key,client_field_expression,required_status,applies_to,heading_1,context_1,heading_2,context_2,heading_3,context_3,heading_4,context_4
-effective_date,[effective_date],optional,both,★ ¶3,"...This Agreement is made and entered into as of {{effective_date}} (the ""Effective Date"") by and between:...",,,,,,
+effective_date,[effective_date],at_signing,both,★ ¶3,"...This Agreement is made and entered into as of {{effective_date}} (the ""Effective Date"") by and between:...",,,,,,
 customer_name,[customer_name],at_signing,both,"★ 13.9 Exhibits, ¶16",...Name: {{customer_name}},,,,,,
 customer_org_name,[owner_name],upload,both,★ ¶10,...Organization Name: {{customer_org_name}},"★ 13.9 Exhibits, ¶14",...Organization Name: {{customer_org_name}},,,,
 customer_address,[customer_address],upload,both,★ ¶11,...Address: {{customer_address}},,,,,,

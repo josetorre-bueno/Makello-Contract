@@ -5,7 +5,7 @@
 
 # Source / reference documents — not needed on the web server
 Moutaz Alsayed*.docx
-PHOTOVOLTAIC SYSTEM DESIGN AND CONSTRUCTION AGREEMENT.docx
+PHOTOVOLTAIC*DESIGN AND CONSTRUCTION AGREEMENT.docx
 P7112851.JPG
 
 # Dev diagnostics
@@ -25,3 +25,8 @@ archive/
 
 # Claude Code project config
 .claude/
+
+# Test harness install artifacts (puppeteer-core installed on demand)
+node_modules/
+package-lock.json
+package.json

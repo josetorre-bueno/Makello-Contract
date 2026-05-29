@@ -4,7 +4,7 @@
   "contractor_license_no": "1110498",
   "material_escalation_threshold_pct": "5%",
   "labor_escalation_threshold_pct": "5%",
-  "phase1_completion_days": "75",
+  "phase1_completion_days": "5",
   "phase1_fee_pct": "8%",
   "phase2_start_days": "30",
   "payment_ntp_pct": "25%",

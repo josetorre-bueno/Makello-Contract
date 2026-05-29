@@ -20,5 +20,8 @@ restartofcontractautomationtool/
 # Previous version JSX files — local revision history only, not needed on server
 old_versions/
 
+# Superseded templates, reference docs, test CSVs
+archive/
+
 # Claude Code project config
 .claude/

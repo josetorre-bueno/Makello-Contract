@@ -4,7 +4,7 @@
 **Purpose:** Browser-based tool that ingests a Makello/Wipomo CSV and fills a Word contract template, then downloads the result as a .docx
 **Deployed at:** contract.cc-energy.org
 **GitHub repo:** https://github.com/josetorre-bueno/Makello-Contract
-**Current version:** v0.3.5
+**Current version:** v0.4.3
 **Memory files:** `memory/` directory — project context, deployment, template placeholders. Read at session start.
 
 ---
@@ -25,7 +25,7 @@ Same pattern as all other CCE tools (see `~/Downloads/Project Files/CLAUDE.md` f
 
 ## Deployment
 
-**Hosting:** Cloudflare Pages (free tier), auto-deploys on every push to the `main` branch of `josetorre-bueno/Makello-Contract`.
+**Hosting:** Cloudflare Pages (free tier). GitHub auto-deploy is currently disconnected (as of 2026-04-30) — deploy manually via Wrangler CLI (see below).
 
 **URLs:**
 - `contract.cc-energy.org` — custom domain (primary)
@@ -56,16 +56,26 @@ Same pattern as all other CCE tools (see `~/Downloads/Project Files/CLAUDE.md` f
 
 ---
 
-**GitHub upload method:** Git clone lives at `/tmp/makello-contract`. After editing files locally, copy and push:
+**Deploy method (GitHub auto-deploy disconnected as of 2026-04-30):**
+Push to GitHub as usual, then deploy to Cloudflare with Wrangler:
 ```bash
-cp ~/Downloads/Wipomo\ Contract\ tool/contract_tool_app_vX.Y.Z.jsx /tmp/makello-contract/
-cp ~/Downloads/Wipomo\ Contract\ tool/contract_tool.html /tmp/makello-contract/
 cd /tmp/makello-contract
-git add contract_tool_app_vX.Y.Z.jsx contract_tool.html
+git pull                     # get latest from GitHub
+npx wrangler pages deploy . --project-name makello-contract --branch main
+```
+If the `/tmp` clone is gone: `git clone https://github.com/josetorre-bueno/Makello-Contract /tmp/makello-contract` first.
+Wrangler auth token persists in `~/.wrangler/` — no login needed after first run per machine.
+
+**GitHub push (always do this first, then Wrangler deploy):**
+```bash
+cp "/Users/jtorrebueno/Desktop/Current/Wipomo Contract tool/contract_tool_app_vX.Y.Z.jsx" /tmp/makello-contract/
+cp "/Users/jtorrebueno/Desktop/Current/Wipomo Contract tool/index.html" /tmp/makello-contract/
+cd /tmp/makello-contract
+git add contract_tool_app_vX.Y.Z.jsx index.html
 git commit -m "Contract tool vX.Y.Z — description"
 git push
+npx wrangler pages deploy . --project-name makello-contract --branch main
 ```
-The clone lives in `/tmp` and may not persist between sessions. If missing: `git clone https://github.com/josetorre-bueno/Makello-Contract /tmp/makello-contract`
 
 ---
 
@@ -160,12 +170,16 @@ Unpacked XML: `unpacked/` directory
 
 | File | Description |
 |------|-------------|
-| `Wipomo_Contract_Template.docx` | Word template with `{{}}` placeholders |
+| `Wipomo_Contract_Template.docx` | Active PV-only Word template — no battery placeholders |
+| `Wipomo_Contract_Template_Battery.docx` | Active PV+Battery Word template |
+| `addendum_template.docx` | Addendum merged after main contract when "Include Addendum" toggled |
 | `contract_fields.csv` | Field manifest: placeholder → description → stability flag |
-| `restartofcontractautomationtool/` | Previous session outputs (sample contract PDF + CSV) |
-| `restartofcontractautomationtool/contract_1e18896c265fbb3cb0656a5436a63589.csv` | Sample Makello CSV for Foo Barson (test data) |
-| `restartofcontractautomationtool/HIC GREEN SOLAR.docx` | Contractor HIC template (may be relevant) |
-| `unpacked/` | Unzipped contents of the Word template (XML) |
+| `contract_input_blank.csv` | Blank CSV template for download |
+| `contract_defaults.json` | Saved stable-field defaults |
+| `old_versions/` | All prior JSX versions (v0.1.x through v0.4.2) — gitignored |
+| `archive/` | Superseded templates, reference docs, test CSVs — gitignored |
+| `restartofcontractautomationtool/` | Sample Makello CSV (Foo Barson test data) |
+| `unpacked/` | Unzipped XML of original template (reference only — edit active templates directly) |
 
 ---
 
@@ -191,22 +205,41 @@ See global config for CSV UTF-8 BOM requirement, cache-busting, and local testin
 
 ---
 
+## Development location
+
+Both folders are active. JSX is developed in `Project Files/` and copied here. Templates are edited directly in this folder.
+
+| Folder | Role |
+|--------|------|
+| `~/Desktop/Current/Wipomo Contract tool/` | Canonical source of truth. Templates, index.html, contract_auth.js, final JSX |
+| `~/Desktop/Current/Project Files/` | JSX development copies are kept here too for cross-project access |
+
+---
+
 ## Status
 
-Current version: **v0.3.5** (2026-04-25)
+Current version: **v0.4.3** (2026-05-27)
 
 Feature state:
 - Two-column layout: per-job fields (left) + stable contractor defaults (right)
-- CSV load (drop or browse), blank CSV download, CSV export with change notes
-- Legacy Makello CSV detection: vertical format (`owner_name`, `address`, `gross_cost` → mapped fields)
-- Tax status dropdown with fuzzy CSV matching: accepts `c`, `C corp`, `s`, `S corp`, `non-profit`, `501(c)3`, etc.
-- Tax status "Other" handling: UI-only input field, value promoted to `customer_tax_status` at merge; `customer_tax_status_other` always blank in output
+- Contract type selector: PV Only vs PV+Battery — selects which Word template is used
+- Battery fields visible only when PV+Battery selected; hidden and skipped for PV Only
+- Translation table: maps CSV column names to internal keys via expression language; exportable and uploadable; persisted to localStorage. Includes applies_to column ('both'|'pv_only'|'pv_battery') to filter entries per contract type.
+- initial_target_capacity: two translation rows, one per contract type
+- Two active templates: Wipomo_Contract_Template.docx (PV Only), Wipomo_Contract_Template_Battery.docx (PV+Battery). PV Only template contains no battery-specific placeholders. Battery template fixes &quot; XML entities so context comparison works correctly.
+- evalExpression(): infix arithmetic, [field_refs], functions: ROUND, AVERAGE, SUM, MIN, MAX, ABS, BUILD_CAPACITY, EXTRACT_DOLLARS
+- scanTemplateForContext(): regex-based paragraph extraction for translation export
+- Three CSV formats: contract_input (3-column), old Makello vertical schema, current Sky-D/Makello schema
+- Tax status dropdown with fuzzy CSV matching; "Other" value promoted at merge
+- phase1_fee_base calc field; phase1_fee_pct, phase1_fee, and 50/50 splits calculated
 - Prevailing wage toggle: yes/no in UI → is/is not in document
-- Dollar amounts rounded to whole dollars (no cents)
-- Blank fields replaced with `___________` in output for hand-writing space (except resolved/photo fields)
+- Dollar amounts rounded to whole dollars; % and $ added automatically on blur
+- Blank fields replaced with ___________ in output; filled fields highlighted yellow
+- Clean Copy switch suppresses highlighting
+- Page numbers in output footer
 - Field status color coding: amber = required, deep blue = at signing, grey = optional, green = filled
-- Unit normalisation: % and $ added automatically on blur and before merge
-- Stable defaults persist via localStorage
-- Lock/unlock: ✏️ Edit Defaults / 🔒 Lock Defaults
-- Site photo image insertion ({{site_photo}}) supported
-- Auth gate: `contract_auth.js` (Makello-specific password)
+- Stable defaults persist via localStorage; Lock/Unlock defaults
+- Site photo image insertion ({{site_photo}})
+- Auth gate: contract_auth.js with show/hide password toggle
+- "Include Addendum" toggle: merges addendum_template.docx; installation_deadline_months controls Addendum §2
+- Help panel accessible from header

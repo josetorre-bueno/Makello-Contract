@@ -1,7 +1,12 @@
-// contract_tool_app_v0.7.2.jsx
+// contract_tool_app_v0.7.3.jsx
 // Makello Contract Tool (Beta)
-// v0.7.2 — 2026-06-03 13:40 PT
+// v0.7.3 — 2026-06-03 14:05 PT
 // Part of: Makello Contract Tool
+//
+// Changes from v0.7.2 (help text):
+//  - Help panel now documents the Guarantee On/Off toggle (what it adds — §9.4 +
+//    Exhibit C, the required Target Annual Production field, the company-policy
+//    defaults, and the background-tint mode cue).
 //
 // Changes from v0.7.1 (contract wording — both .docx templates):
 //  - §4.2 (battery template): the ¶ explaining the Phase 1 fee basis is now
@@ -1575,7 +1580,7 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Single source of truth for the tool version. Drives the on-screen badge and
 // the provenance footer stamped into every generated contract. (The ?v= cache-
 // bust literals are still maintained per-fetch — see global config versioning.)
-const VERSION = 'v0.7.2';
+const VERSION = 'v0.7.3';
 
 // Unicode interlinear annotation markers — safe sentinels that will never
 // appear in contract text and are not escaped by docxtemplater.
@@ -1784,7 +1789,7 @@ function App() {
   useEffect(() => {
     const fromStorage = loadStableFromStorage();
     if (fromStorage) { setStable(fromStorage); setDefaultsLoaded(true); return; }
-    fetch('./contract_defaults.json?v=0.7.2')
+    fetch('./contract_defaults.json?v=0.7.3')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStable(prev => ({ ...HARDCODED_DEFAULTS, ...data })); setDefaultsLoaded(true); })
       .catch(() => setDefaultsLoaded(true));
@@ -1796,7 +1801,7 @@ function App() {
   // the deployment problem surfaces immediately rather than silently
   // pretending to work.
   useEffect(() => {
-    fetch('./translation_defaults.csv?v=0.7.2')
+    fetch('./translation_defaults.csv?v=0.7.3')
       .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(text => {
         const parsed = importTranslationCsv(text);
@@ -1939,7 +1944,7 @@ function App() {
   // ── Merge addendum docx into a PizZip that already contains the rendered main contract ──
   // Remaps addendum numbering IDs so they don't collide with the main document's lists.
   async function mergeAddendumInto(outputZip, mergeData) {
-    const addResp = await fetch('./addendum_template.docx?v=0.7.2');
+    const addResp = await fetch('./addendum_template.docx?v=0.7.3');
     if (!addResp.ok) throw new Error(`Addendum template not found (HTTP ${addResp.status})`);
     const addBuf = await addResp.arrayBuffer();
 
@@ -2074,8 +2079,8 @@ function App() {
     setGenerating(true); setStatus('Loading template…');
     try {
       const templateFile = contractType === 'pv_battery'
-        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.2'
-        : './Wipomo_Contract_Template.docx?v=0.7.2';
+        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.3'
+        : './Wipomo_Contract_Template.docx?v=0.7.3';
       const resp = await fetch(templateFile);
       if (!resp.ok) throw new Error(`Template not found (HTTP ${resp.status})`);
 
@@ -2520,8 +2525,11 @@ function App() {
               <p style={{ margin: '0 0 6px', fontSize: 12, color: '#2d3748', lineHeight: 1.5 }}>
                 Check <strong>Clean Copy</strong> to suppress yellow field highlighting. Check <strong>Output PDF</strong> to open the filled contract in a browser print dialog instead of downloading a Word file; choose Save as PDF and keep the tab open until the dialog closes.
               </p>
-              <p style={{ margin: 0, fontSize: 12, color: '#2d3748', lineHeight: 1.5 }}>
+              <p style={{ margin: '0 0 6px', fontSize: 12, color: '#2d3748', lineHeight: 1.5 }}>
                 <strong>Include Addendum:</strong> merges <code style={{ background: '#e2e8f0', padding: '1px 3px', borderRadius: 3 }}>addendum_template.docx</code> after the main contract. The addendum deadline field controls the installation window in Addendum §2.
+              </p>
+              <p style={{ margin: 0, fontSize: 12, color: '#2d3748', lineHeight: 1.5 }}>
+                <strong>Guarantee On / Off</strong> (toggle beside the PV/Battery selector, default <strong>On</strong>): when On, the contract includes the <strong>Production Guarantee</strong> (§9.4) and <strong>Exhibit C</strong>, a 30-year Annual Production Potential table. It requires one per-job field — <strong>Target Annual Production</strong> (the contracted Year-1 kWh, fixed at signing) — plus the company-policy guarantee defaults on the right (floor %, degradation %, audit interval, remedy cap, cleaning fees). When Off, none of that appears. The page background tint also reflects the current mode (contract type × guarantee) as a quick visual cue.
               </p>
             </div>
 

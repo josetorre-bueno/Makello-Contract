@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 # Wipomo Contract Tool — generated-docx validator (matrix harness companion)
-# Version: v0.6.7
-# Updated: 2026-05-28 23:52 PT
+# Version: v0.7.0
+# Updated: 2026-06-03 12:48 PT
 # Part of: Makello Contract Tool
 #
 # Validates every .docx in a directory produced by contract_matrix_test.mjs.
 # The filename encodes the settings combo, e.g.:
-#   type=pv_battery__addendum=on__clean=off.docx
+#   type=pv_battery__guarantee=on__addendum=on__clean=off.docx
 # Checks, per file:
 #   1. Every word/*.xml is well-formed.
 #   2. numbering.xml schema order — ALL <w:abstractNum> precede ALL <w:num>
@@ -15,6 +15,8 @@
 #   4. Yellow highlight presence matches the clean flag (clean=on -> none).
 #   5. Addendum content presence matches the addendum flag.
 #   6. Battery clauses presence matches the contract type.
+#   7. Production Guarantee + Exhibit C presence matches the guarantee flag (v0.7.0).
+#   8. No leftover docxtemplater tags ("{{") in the rendered document (v0.7.0).
 import sys, os, re, zipfile
 import xml.etree.ElementTree as ET
 
@@ -80,6 +82,16 @@ def check(path):
     want_batt = combo.get('type') == 'pv_battery'
     results.append(("battery matches type", batt == want_batt,
                     f"battery clauses {'present' if batt else 'absent'} (want {'present' if want_batt else 'absent'})"))
+
+    # 7. production guarantee + Exhibit C vs guarantee flag (v0.7.0)
+    guar = ('Production Guarantee' in doc) and ('Annual Production Potential' in doc)
+    want_guar = combo.get('guarantee') == 'on'
+    results.append(("guarantee matches flag", guar == want_guar,
+                    f"guarantee content {'present' if guar else 'absent'} (want {'present' if want_guar else 'absent'})"))
+
+    # 8. no leftover docxtemplater tags (all sections/loops/placeholders rendered)
+    leftover = doc.count('{{')
+    results.append(("no leftover {{ tags", leftover == 0, f"{leftover} leftover '{{{{' (expect 0)"))
 
     return name, results
 

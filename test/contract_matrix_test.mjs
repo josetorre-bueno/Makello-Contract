@@ -1,14 +1,14 @@
 // Wipomo Contract Tool — browser matrix test harness
-// Version: v0.6.7
-// Updated: 2026-05-28 23:52 PT
+// Version: v0.7.0
+// Updated: 2026-06-03 12:48 PT
 // Part of: Makello Contract Tool
 //
 // Drives the REAL app in Chrome (via puppeteer-core + the installed Chrome)
 // across the settings matrix, generating a draft .docx for each combination,
 // then hands the downloads to validate_docx_matrix.py.
 //
-// Matrix: contractType {pv_only, pv_battery} × addendum {on,off} × clean {on,off}
-//   = 8 .docx files. Uses "Generate Draft" so missing required fields don't
+// Matrix: contractType {pv_only, pv_battery} × guarantee {on,off} × addendum {on,off} × clean {on,off}
+//   = 16 .docx files. Uses "Generate Draft" so missing required fields don't
 //   block generation (the full pipeline — clean/highlight + addendum merge +
 //   numbering — still runs, which is what we're testing).
 //
@@ -77,7 +77,11 @@ async function main() {
   const browser = await puppeteer.launch({
     executablePath: CHROME,
     headless: 'new',
-    args: ['--no-sandbox', '--disable-gpu'],
+    // Isolated profile so the harness launches even when the user's Chrome is
+    // already open (shared default profile → WS-endpoint launch timeout).
+    args: ['--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
+           '--no-first-run', '--no-default-browser-check',
+           '--user-data-dir=/tmp/chrome-harness-profile'],
   });
   const page = await browser.newPage();
 
@@ -109,14 +113,16 @@ async function main() {
 
   const matrix = [];
   for (const type of ['pv_only', 'pv_battery'])
-    for (const addendum of ['on', 'off'])
-      for (const clean of ['on', 'off'])
-        matrix.push({ type, addendum, clean });
+    for (const guarantee of ['on', 'off'])
+      for (const addendum of ['on', 'off'])
+        for (const clean of ['on', 'off'])
+          matrix.push({ type, guarantee, addendum, clean });
 
   for (const combo of matrix) {
-    const tag = `type=${combo.type}__addendum=${combo.addendum}__clean=${combo.clean}`;
+    const tag = `type=${combo.type}__guarantee=${combo.guarantee}__addendum=${combo.addendum}__clean=${combo.clean}`;
     process.stdout.write(`→ ${tag} ... `);
     await clickButtonByText(page, combo.type === 'pv_battery' ? 'PV + Battery' : 'PV Only');
+    await setCheckbox(page, 'Include Production Guarantee', combo.guarantee === 'on');
     await setCheckbox(page, 'Include Addendum', combo.addendum === 'on');
     await setCheckbox(page, 'Clean Copy', combo.clean === 'on');
     await setCheckbox(page, 'Output PDF', false); // always docx

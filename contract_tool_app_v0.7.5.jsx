@@ -1,7 +1,15 @@
-// contract_tool_app_v0.7.4.jsx
+// contract_tool_app_v0.7.5.jsx
 // Makello Contract Tool (Beta)
-// v0.7.4 — 2026-06-03 14:35 PT
+// v0.7.5 — 2026-06-03 14:55 PT
 // Part of: Makello Contract Tool
+//
+// Changes from v0.7.4 (watermark fill fix):
+//  - Watermark now fills the whole page for every mode. v0.7.4 used a fixed
+//    line count/length, so the short "PV" label produced sparse text that
+//    rotated mostly off-screen (looked blank in PV-only/no-guarantee). Now each
+//    line is ~500 chars (reps scale to label length) and there are 80 lines,
+//    over a larger 300%×300% rotated layer; keyed by modeText so it refreshes
+//    cleanly when toggled.
 //
 // Changes from v0.7.3 (mode-cue UI):
 //  - Darker, more distinctive background tints per mode (green / amber / blue /
@@ -1588,7 +1596,7 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Single source of truth for the tool version. Drives the on-screen badge and
 // the provenance footer stamped into every generated contract. (The ?v= cache-
 // bust literals are still maintained per-fetch — see global config versioning.)
-const VERSION = 'v0.7.4';
+const VERSION = 'v0.7.5';
 
 // Unicode interlinear annotation markers — safe sentinels that will never
 // appear in contract text and are not escaped by docxtemplater.
@@ -1797,7 +1805,7 @@ function App() {
   useEffect(() => {
     const fromStorage = loadStableFromStorage();
     if (fromStorage) { setStable(fromStorage); setDefaultsLoaded(true); return; }
-    fetch('./contract_defaults.json?v=0.7.4')
+    fetch('./contract_defaults.json?v=0.7.5')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStable(prev => ({ ...HARDCODED_DEFAULTS, ...data })); setDefaultsLoaded(true); })
       .catch(() => setDefaultsLoaded(true));
@@ -1809,7 +1817,7 @@ function App() {
   // the deployment problem surfaces immediately rather than silently
   // pretending to work.
   useEffect(() => {
-    fetch('./translation_defaults.csv?v=0.7.4')
+    fetch('./translation_defaults.csv?v=0.7.5')
       .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(text => {
         const parsed = importTranslationCsv(text);
@@ -1952,7 +1960,7 @@ function App() {
   // ── Merge addendum docx into a PizZip that already contains the rendered main contract ──
   // Remaps addendum numbering IDs so they don't collide with the main document's lists.
   async function mergeAddendumInto(outputZip, mergeData) {
-    const addResp = await fetch('./addendum_template.docx?v=0.7.4');
+    const addResp = await fetch('./addendum_template.docx?v=0.7.5');
     if (!addResp.ok) throw new Error(`Addendum template not found (HTTP ${addResp.status})`);
     const addBuf = await addResp.arrayBuffer();
 
@@ -2087,8 +2095,8 @@ function App() {
     setGenerating(true); setStatus('Loading template…');
     try {
       const templateFile = contractType === 'pv_battery'
-        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.4'
-        : './Wipomo_Contract_Template.docx?v=0.7.4';
+        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.5'
+        : './Wipomo_Contract_Template.docx?v=0.7.5';
       const resp = await fetch(templateFile);
       if (!resp.ok) throw new Error(`Template not found (HTTP ${resp.status})`);
 
@@ -2340,8 +2348,13 @@ function App() {
   const modeText = contractType === 'pv_battery'
     ? (includeGuarantee ? 'PV + BATTERY W/ GUARANTEE' : 'PV + BATTERY')
     : (includeGuarantee ? 'PV W/ GUARANTEE' : 'PV');
-  const wmLine  = (' ' + modeText).repeat(14);   // em-spaces between repeats
-  const wmLines = Array.from({ length: 40 }, (_, i) => <div key={i}>{wmLine}</div>);
+  // Each line ~500 chars so it spans the rotated layer regardless of label
+  // length (short labels like "PV" otherwise leave the page mostly blank);
+  // 80 lines to fill the height. Excess is clipped by the layer's overflow.
+  // Key by modeText so the nodes refresh cleanly when the mode changes.
+  const wmReps  = Math.max(20, Math.ceil(500 / (modeText.length + 1)));
+  const wmLine  = (' ' + modeText).repeat(wmReps);
+  const wmLines = Array.from({ length: 80 }, (_, i) => <div key={modeText + ':' + i}>{wmLine}</div>);
   // v0.5.0: also gate Generate on translation being loaded — generating with
   // an empty translation table produces empty placeholder values.
   const readyToGenerate = missingCount === 0 && translationStatus === 'loaded';
@@ -2358,7 +2371,7 @@ function App() {
                    background: bgTint, transition: 'background .35s ease' }} />
       <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: -1,
                    overflow: 'hidden', pointerEvents: 'none' }}>
-        <div style={{ position: 'absolute', top: '-60%', left: '-60%', width: '220%', height: '220%',
+        <div style={{ position: 'absolute', top: '-100%', left: '-100%', width: '300%', height: '300%',
                       transform: 'rotate(-30deg)', transformOrigin: 'center',
                       color: '#ffffff', opacity: 0.45, userSelect: 'none',
                       fontWeight: 700, fontSize: 13, letterSpacing: 2, lineHeight: 2.6, whiteSpace: 'nowrap' }}>

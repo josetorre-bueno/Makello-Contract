@@ -1,7 +1,20 @@
-// contract_tool_app_v0.7.1.jsx
+// contract_tool_app_v0.7.2.jsx
 // Makello Contract Tool (Beta)
-// v0.7.1 — 2026-06-03 13:10 PT
+// v0.7.2 — 2026-06-03 13:40 PT
 // Part of: Makello Contract Tool
+//
+// Changes from v0.7.1 (contract wording — both .docx templates):
+//  - §4.2 (battery template): the ¶ explaining the Phase 1 fee basis is now
+//    conditional — it appears ONLY when the battery cost is included in the
+//    Phase 1 fee basis, reading "The Customer has chosen to include the Battery
+//    Storage System Cost in the Phase 1 Fee Basis …". When excluded, no such ¶.
+//    Driven by a new renderData boolean battery_in_phase1 (include_battery_in_
+//    phase1 === 'yes'). Removed the now-redundant "(Total Project Cost less
+//    Battery Storage System Cost if excluded)" parenthetical from the Fee Basis line.
+//  - Both templates: removed "actual" from "reimbursed separately at actual cost"
+//    in the §4.2 Long Lead Time sentence → "at cost".
+//  - Both templates: §4.5 heading now has keep-with-next so it can't be orphaned
+//    at a page break.
 //
 // Changes from v0.7.0 (UI fix):
 //  - The Production Guarantee control is now a real button-group toggle
@@ -1562,7 +1575,7 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Single source of truth for the tool version. Drives the on-screen badge and
 // the provenance footer stamped into every generated contract. (The ?v= cache-
 // bust literals are still maintained per-fetch — see global config versioning.)
-const VERSION = 'v0.7.1';
+const VERSION = 'v0.7.2';
 
 // Unicode interlinear annotation markers — safe sentinels that will never
 // appear in contract text and are not escaped by docxtemplater.
@@ -1771,7 +1784,7 @@ function App() {
   useEffect(() => {
     const fromStorage = loadStableFromStorage();
     if (fromStorage) { setStable(fromStorage); setDefaultsLoaded(true); return; }
-    fetch('./contract_defaults.json?v=0.7.1')
+    fetch('./contract_defaults.json?v=0.7.2')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStable(prev => ({ ...HARDCODED_DEFAULTS, ...data })); setDefaultsLoaded(true); })
       .catch(() => setDefaultsLoaded(true));
@@ -1783,7 +1796,7 @@ function App() {
   // the deployment problem surfaces immediately rather than silently
   // pretending to work.
   useEffect(() => {
-    fetch('./translation_defaults.csv?v=0.7.1')
+    fetch('./translation_defaults.csv?v=0.7.2')
       .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(text => {
         const parsed = importTranslationCsv(text);
@@ -1926,7 +1939,7 @@ function App() {
   // ── Merge addendum docx into a PizZip that already contains the rendered main contract ──
   // Remaps addendum numbering IDs so they don't collide with the main document's lists.
   async function mergeAddendumInto(outputZip, mergeData) {
-    const addResp = await fetch('./addendum_template.docx?v=0.7.1');
+    const addResp = await fetch('./addendum_template.docx?v=0.7.2');
     if (!addResp.ok) throw new Error(`Addendum template not found (HTTP ${addResp.status})`);
     const addBuf = await addResp.arrayBuffer();
 
@@ -2061,8 +2074,8 @@ function App() {
     setGenerating(true); setStatus('Loading template…');
     try {
       const templateFile = contractType === 'pv_battery'
-        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.1'
-        : './Wipomo_Contract_Template.docx?v=0.7.1';
+        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.2'
+        : './Wipomo_Contract_Template.docx?v=0.7.2';
       const resp = await fetch(templateFile);
       if (!resp.ok) throw new Error(`Template not found (HTTP ${resp.status})`);
 
@@ -2120,6 +2133,9 @@ function App() {
                                mergeData.first_year_degradation_pct,
                                mergeData.annual_degradation_pct)
         : [];
+      // v0.7.2: battery template §4.2 ¶2 ("Customer has chosen to include …")
+      // shows ONLY when the battery cost is included in the Phase 1 fee basis.
+      renderData.battery_in_phase1 = (mergeData.include_battery_in_phase1 === 'yes');
       doc.render(renderData);
 
       // 2. Extract rendered document.xml, strip comment anchors

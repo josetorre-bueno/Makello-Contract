@@ -1,7 +1,15 @@
-// contract_tool_app_v0.7.3.jsx
+// contract_tool_app_v0.7.4.jsx
 // Makello Contract Tool (Beta)
-// v0.7.3 — 2026-06-03 14:05 PT
+// v0.7.4 — 2026-06-03 14:35 PT
 // Part of: Makello Contract Tool
+//
+// Changes from v0.7.3 (mode-cue UI):
+//  - Darker, more distinctive background tints per mode (green / amber / blue /
+//    grey) + a white diagonal repeating WATERMARK of the mode label across the
+//    page (PV / PV W/ GUARANTEE / PV + BATTERY / PV + BATTERY W/ GUARANTEE).
+//    The differing text LENGTH is itself a cue. Implemented as two fixed,
+//    pointer-events:none, negative-z-index background layers (tint + watermark)
+//    so they never affect layout or clicks. Reduces "forgot to set the toggle".
 //
 // Changes from v0.7.2 (help text):
 //  - Help panel now documents the Guarantee On/Off toggle (what it adds — §9.4 +
@@ -1580,7 +1588,7 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Single source of truth for the tool version. Drives the on-screen badge and
 // the provenance footer stamped into every generated contract. (The ?v= cache-
 // bust literals are still maintained per-fetch — see global config versioning.)
-const VERSION = 'v0.7.3';
+const VERSION = 'v0.7.4';
 
 // Unicode interlinear annotation markers — safe sentinels that will never
 // appear in contract text and are not escaped by docxtemplater.
@@ -1789,7 +1797,7 @@ function App() {
   useEffect(() => {
     const fromStorage = loadStableFromStorage();
     if (fromStorage) { setStable(fromStorage); setDefaultsLoaded(true); return; }
-    fetch('./contract_defaults.json?v=0.7.3')
+    fetch('./contract_defaults.json?v=0.7.4')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStable(prev => ({ ...HARDCODED_DEFAULTS, ...data })); setDefaultsLoaded(true); })
       .catch(() => setDefaultsLoaded(true));
@@ -1801,7 +1809,7 @@ function App() {
   // the deployment problem surfaces immediately rather than silently
   // pretending to work.
   useEffect(() => {
-    fetch('./translation_defaults.csv?v=0.7.3')
+    fetch('./translation_defaults.csv?v=0.7.4')
       .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(text => {
         const parsed = importTranslationCsv(text);
@@ -1944,7 +1952,7 @@ function App() {
   // ── Merge addendum docx into a PizZip that already contains the rendered main contract ──
   // Remaps addendum numbering IDs so they don't collide with the main document's lists.
   async function mergeAddendumInto(outputZip, mergeData) {
-    const addResp = await fetch('./addendum_template.docx?v=0.7.3');
+    const addResp = await fetch('./addendum_template.docx?v=0.7.4');
     if (!addResp.ok) throw new Error(`Addendum template not found (HTTP ${addResp.status})`);
     const addBuf = await addResp.arrayBuffer();
 
@@ -2079,8 +2087,8 @@ function App() {
     setGenerating(true); setStatus('Loading template…');
     try {
       const templateFile = contractType === 'pv_battery'
-        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.3'
-        : './Wipomo_Contract_Template.docx?v=0.7.3';
+        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.4'
+        : './Wipomo_Contract_Template.docx?v=0.7.4';
       const resp = await fetch(templateFile);
       if (!resp.ok) throw new Error(`Template not found (HTTP ${resp.status})`);
 
@@ -2322,11 +2330,18 @@ function App() {
   const setStableField = (key, val) => setStable(prev => ({ ...prev, [key]: val }));
   const statusIsGood   = status.startsWith('✓');
   const missingCount   = getMissingFields(allValues, translation, contractType, includeGuarantee).length;
-  // v0.7.0: soft page-background tint keyed to (contract type × guarantee) — a
+  // v0.7.0/v0.7.4: page-background tint keyed to (contract type × guarantee) — a
   // constant, learnable cue so users notice when a toggle is off the usual setting.
+  // v0.7.4: darker, more distinctive tints + a white diagonal watermark of the
+  // mode label (below). Three stacked cues: colour, text, and text length.
   const bgTint = contractType === 'pv_battery'
-    ? (includeGuarantee ? '#eef6ee' : '#fff4e6')    // green = full (PV+Batt+Guarantee), amber = no guarantee
-    : (includeGuarantee ? '#eaf1fb' : '#f0f0f3');   // blue = PV-only+Guarantee, grey = PV-only no guarantee
+    ? (includeGuarantee ? '#a9cfa6' : '#f0c98a')    // green = full (PV+Batt+Guarantee), amber = no guarantee
+    : (includeGuarantee ? '#a9c4e8' : '#c9c9d4');   // blue = PV-only+Guarantee, grey = PV-only no guarantee
+  const modeText = contractType === 'pv_battery'
+    ? (includeGuarantee ? 'PV + BATTERY W/ GUARANTEE' : 'PV + BATTERY')
+    : (includeGuarantee ? 'PV W/ GUARANTEE' : 'PV');
+  const wmLine  = (' ' + modeText).repeat(14);   // em-spaces between repeats
+  const wmLines = Array.from({ length: 40 }, (_, i) => <div key={i}>{wmLine}</div>);
   // v0.5.0: also gate Generate on translation being loaded — generating with
   // an empty translation table produces empty placeholder values.
   const readyToGenerate = missingCount === 0 && translationStatus === 'loaded';
@@ -2334,7 +2349,22 @@ function App() {
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
-    <div style={{ minHeight: '100vh', background: bgTint, transition: 'background .35s ease' }}>
+    <div style={{ minHeight: '100vh' }}>
+
+      {/* v0.7.4: fixed background layers — tint (behind) + white diagonal mode
+          watermark. Both pointer-events:none and negative z-index so they sit
+          behind all content without affecting layout or clicks. */}
+      <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: -2,
+                   background: bgTint, transition: 'background .35s ease' }} />
+      <div aria-hidden="true" style={{ position: 'fixed', inset: 0, zIndex: -1,
+                   overflow: 'hidden', pointerEvents: 'none' }}>
+        <div style={{ position: 'absolute', top: '-60%', left: '-60%', width: '220%', height: '220%',
+                      transform: 'rotate(-30deg)', transformOrigin: 'center',
+                      color: '#ffffff', opacity: 0.45, userSelect: 'none',
+                      fontWeight: 700, fontSize: 13, letterSpacing: 2, lineHeight: 2.6, whiteSpace: 'nowrap' }}>
+          {wmLines}
+        </div>
+      </div>
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div style={{ background: '#1a365d', color: 'white', padding: '10px 20px',

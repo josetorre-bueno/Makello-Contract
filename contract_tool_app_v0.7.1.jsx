@@ -1,7 +1,15 @@
-// contract_tool_app_v0.7.0.jsx
+// contract_tool_app_v0.7.1.jsx
 // Makello Contract Tool (Beta)
-// v0.7.0 — 2026-06-03 12:48 PT
+// v0.7.1 — 2026-06-03 13:10 PT
 // Part of: Makello Contract Tool
+//
+// Changes from v0.7.0 (UI fix):
+//  - The Production Guarantee control is now a real button-group toggle
+//    [Guarantee On | Guarantee Off] sitting next to the PV/Battery selector,
+//    matching that affordance. v0.7.0 had a non-clickable status chip that
+//    looked like a button plus a separate far-right checkbox — confusing.
+//    Removed the chip and the redundant checkbox; the background tint still
+//    provides the constant mode cue.
 //
 // Changes from v0.6.8 (MINOR BUMP — optional Production Guarantee):
 //  - NEW "Include Production Guarantee" header toggle (default ON). When on,
@@ -1554,7 +1562,7 @@ function Btn({ onClick, children, title, bg = '#edf2f7', bdr = '#cbd5e0', color 
 // Single source of truth for the tool version. Drives the on-screen badge and
 // the provenance footer stamped into every generated contract. (The ?v= cache-
 // bust literals are still maintained per-fetch — see global config versioning.)
-const VERSION = 'v0.7.0';
+const VERSION = 'v0.7.1';
 
 // Unicode interlinear annotation markers — safe sentinels that will never
 // appear in contract text and are not escaped by docxtemplater.
@@ -1763,7 +1771,7 @@ function App() {
   useEffect(() => {
     const fromStorage = loadStableFromStorage();
     if (fromStorage) { setStable(fromStorage); setDefaultsLoaded(true); return; }
-    fetch('./contract_defaults.json?v=0.7.0')
+    fetch('./contract_defaults.json?v=0.7.1')
       .then(r => r.ok ? r.json() : null)
       .then(data => { if (data) setStable(prev => ({ ...HARDCODED_DEFAULTS, ...data })); setDefaultsLoaded(true); })
       .catch(() => setDefaultsLoaded(true));
@@ -1775,7 +1783,7 @@ function App() {
   // the deployment problem surfaces immediately rather than silently
   // pretending to work.
   useEffect(() => {
-    fetch('./translation_defaults.csv?v=0.7.0')
+    fetch('./translation_defaults.csv?v=0.7.1')
       .then(r => r.ok ? r.text() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then(text => {
         const parsed = importTranslationCsv(text);
@@ -1918,7 +1926,7 @@ function App() {
   // ── Merge addendum docx into a PizZip that already contains the rendered main contract ──
   // Remaps addendum numbering IDs so they don't collide with the main document's lists.
   async function mergeAddendumInto(outputZip, mergeData) {
-    const addResp = await fetch('./addendum_template.docx?v=0.7.0');
+    const addResp = await fetch('./addendum_template.docx?v=0.7.1');
     if (!addResp.ok) throw new Error(`Addendum template not found (HTTP ${addResp.status})`);
     const addBuf = await addResp.arrayBuffer();
 
@@ -2053,8 +2061,8 @@ function App() {
     setGenerating(true); setStatus('Loading template…');
     try {
       const templateFile = contractType === 'pv_battery'
-        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.0'
-        : './Wipomo_Contract_Template.docx?v=0.7.0';
+        ? './Wipomo_Contract_Template_Battery.docx?v=0.7.1'
+        : './Wipomo_Contract_Template.docx?v=0.7.1';
       const resp = await fetch(templateFile);
       if (!resp.ok) throw new Error(`Template not found (HTTP ${resp.status})`);
 
@@ -2298,7 +2306,6 @@ function App() {
   const bgTint = contractType === 'pv_battery'
     ? (includeGuarantee ? '#eef6ee' : '#fff4e6')    // green = full (PV+Batt+Guarantee), amber = no guarantee
     : (includeGuarantee ? '#eaf1fb' : '#f0f0f3');   // blue = PV-only+Guarantee, grey = PV-only no guarantee
-  const modeLabel = `${contractType === 'pv_battery' ? 'PV + Battery' : 'PV Only'} · Guarantee ${includeGuarantee ? 'ON' : 'OFF'}`;
   // v0.5.0: also gate Generate on translation being loaded — generating with
   // an empty translation table produces empty placeholder values.
   const readyToGenerate = missingCount === 0 && translationStatus === 'loaded';
@@ -2325,13 +2332,20 @@ function App() {
             </button>
           ))}
         </div>
-        {/* Mode label — mirrors the background-tint cue in words */}
-        <span style={{ fontSize: 11, fontWeight: 600, color: '#1a365d',
-                       background: bgTint, padding: '2px 8px', borderRadius: 10,
-                       border: '1px solid rgba(255,255,255,0.5)' }}
-              title="Current output mode (also shown as the page background tint)">
-          {modeLabel}
-        </span>
+        {/* Production Guarantee toggle — same button-group affordance as the
+            contract-type selector (v0.7.1: was a non-clickable chip + a far-off checkbox). */}
+        <div style={{ display: 'flex', borderRadius: 5, overflow: 'hidden',
+                      border: '1px solid rgba(255,255,255,0.35)', fontSize: 12 }}
+             title="Production Guarantee — adds §9.4 and the Exhibit C production table">
+          {[[true, 'Guarantee On'], [false, 'Guarantee Off']].map(([val, label]) => (
+            <button key={String(val)} onClick={() => setIncludeGuarantee(val)} disabled={generating}
+              style={{ padding: '3px 11px', border: 'none', cursor: 'pointer',
+                       background: includeGuarantee === val ? 'rgba(255,255,255,0.25)' : 'transparent',
+                       color: 'white', fontWeight: includeGuarantee === val ? 700 : 400 }}>
+              {label}
+            </button>
+          ))}
+        </div>
         <button onClick={() => setShowHelp(h => !h)} title="Help"
           style={{ padding: '2px 10px', fontSize: 12, borderRadius: 4, border: '1px solid rgba(255,255,255,0.3)',
                    background: showHelp ? 'rgba(255,255,255,0.2)' : 'transparent',
@@ -2355,16 +2369,6 @@ function App() {
               {status}
             </span>
           )}
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6,
-                          fontSize: 12, color: 'white', cursor: 'pointer',
-                          opacity: generating ? 0.5 : 1 }}
-                 title="Include Production Guarantee: adds the §9.4 production guarantee and Exhibit C production table">
-            <input type="checkbox" checked={includeGuarantee}
-                   onChange={e => setIncludeGuarantee(e.target.checked)}
-                   disabled={generating}
-                   style={{ width: 14, height: 14, cursor: 'pointer' }} />
-            Include Production Guarantee
-          </label>
           <label style={{ display: 'flex', alignItems: 'center', gap: 6,
                           fontSize: 12, color: 'white', cursor: 'pointer',
                           opacity: generating ? 0.5 : 1 }}>

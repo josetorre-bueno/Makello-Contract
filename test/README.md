@@ -48,6 +48,17 @@ TARGET_URL=https://beta.makello-contract.pages.dev/ node test/contract_matrix_te
 Output `.docx` files land in `/tmp/harness_out/` named by combo, e.g.
 `type=pv_battery__addendum=on__clean=off.docx`, so failures are easy to open.
 
+## Readiness test (no browser)
+
+`node test/readiness_test.mjs` — verifies the **"All fields ready"** check
+(`getMissingFields`, extracted live from the JSX) against the real
+`translation_defaults.csv` across all 4 variants (pv_only|pv_battery ×
+guarantee off|on). Confirms every required field is flagged when blank, that
+filling exactly that set → ready, and that **completing one variant does not
+satisfy another** (battery/guarantee fields are re-required on switch). The
+matrix harness above uses *Draft* mode, which bypasses this gate, so this test
+is what actually exercises readiness.
+
 ## Notes
 
 - Uses the sample CSV at `restartofcontractautomationtool/` (gitignored — local
